@@ -1,0 +1,453 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { getProducts, getCategories, updateProduct, deleteProduct } from "@/lib/api/inventory";
+import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+
+export default function InventoryPage() {
+  const { role } = useAuth();
+  const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<number | undefined>();
+
+  // Edit modal states
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    brand: "",
+    categoryId: "",
+    costPrice: "",
+    sellingPrice: "",
+    lowStockThreshold: "",
+    imageUrl: "",
+  });
+  const [editImageSourceType, setEditImageSourceType] = useState<"file" | "url">("file");
+  const [editFileInputKey, setEditFileInputKey] = useState(Date.now());
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  useEffect(() => {
+    loadData();
+  }, [search, selectedCategory]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [prods, cats] = await Promise.all([
+        getProducts(selectedCategory, search),
+        getCategories()
+      ]);
+      setProducts(prods);
+      setCategories(cats);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditClick = (product: any) => {
+    setEditingProduct(product);
+    setEditFormData({
+      name: product.name,
+      brand: product.brand || "",
+      categoryId: product.categoryId.toString(),
+      costPrice: product.costPrice.toString(),
+      sellingPrice: product.sellingPrice.toString(),
+      lowStockThreshold: product.lowStockThreshold.toString(),
+      imageUrl: product.imageUrl || "",
+    });
+    setEditImageSourceType(product.imageUrl?.startsWith("data:") ? "file" : "url");
+    setEditError("");
+  };
+
+  const handleDeleteClick = async (productId: number) => {
+    if (confirm("Are you sure you want to delete this product?")) {
+      try {
+        await deleteProduct(productId);
+        loadData();
+      } catch (err: any) {
+        alert(err.message || "Failed to delete product");
+      }
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingEdit(true);
+    setEditError("");
+
+    const threshold = parseInt(editFormData.lowStockThreshold) || 0;
+    if (threshold <= 0) {
+      setEditError("Low Stock Threshold must be a positive number.");
+      setSavingEdit(false);
+      return;
+    }
+
+    try {
+      await updateProduct(editingProduct.id, {
+        name: editFormData.name,
+        brand: editFormData.brand,
+        categoryId: parseInt(editFormData.categoryId),
+        costPrice: parseFloat(editFormData.costPrice),
+        sellingPrice: parseFloat(editFormData.sellingPrice),
+        lowStockThreshold: threshold,
+        imageUrl: editFormData.imageUrl || null,
+      });
+      setEditingProduct(null);
+      loadData();
+    } catch (err: any) {
+      setEditError(err.message || "Failed to update product");
+      setSavingEdit(false);
+    }
+  };
+
+  return (
+    <div className="bg-white shadow rounded-lg p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">Inventory</h2>
+        {role === "owner" && (
+          <Link
+            href="/inventory/new"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-bold"
+          >
+            + Add Product
+          </Link>
+        )}
+      </div>
+
+      <div className="flex gap-4 mb-6">
+        <input
+          type="text"
+          placeholder="Search products..."
+          className="flex-1 border border-gray-300 rounded px-4 py-2"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="border border-gray-300 rounded px-4 py-2 bg-white"
+          value={selectedCategory || ""}
+          onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
+        >
+          <option value="">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-10">Loading inventory...</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                {role === "owner" && (
+                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost Price</th>
+                )}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Selling Price</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                {role === "owner" && (
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {products.map((product) => (
+                <tr key={product.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          className="w-16 h-16 object-contain rounded border border-gray-200 bg-white"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded border border-gray-200 bg-gray-50 flex items-center justify-center text-gray-400 text-[10px] font-bold">
+                          No Img
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                        {product.brand && <div className="text-sm text-gray-500">{product.brand}</div>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {product.category?.name}
+                  </td>
+                  {role === "owner" && (
+                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ₹{product.costPrice}
+                     </td>
+                  )}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    ₹{product.sellingPrice}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      product.quantityInStock <= product.lowStockThreshold 
+                        ? "bg-red-100 text-red-800" 
+                        : "bg-green-100 text-green-800"
+                    }`}>
+                      {product.quantityInStock}
+                    </span>
+                  </td>
+                  {role === "owner" && (
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <Link
+                        href={`/inventory/${product.id}/stock`}
+                        className="inline-block text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors text-xs font-bold"
+                      >
+                        + Stock
+                      </Link>
+                      <button
+                        onClick={() => handleEditClick(product)}
+                        className="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded transition-colors text-xs font-bold"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(product.id)}
+                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors text-xs font-bold"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {products.length === 0 && (
+                <tr>
+                  <td colSpan={role === "owner" ? 6 : 4} className="px-6 py-4 text-center text-gray-500">
+                    No products found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full h-[85vh] min-h-[600px] p-8 shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center mb-6 border-b pb-3 flex-shrink-0">
+              <h3 className="text-xl font-bold text-gray-800">Edit Product Details</h3>
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            {editError && (
+              <div className="mb-4 text-red-600 bg-red-50 p-3 rounded border border-red-100 text-sm font-semibold flex-shrink-0">
+                {editError}
+              </div>
+            )}
+
+            <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto pr-2 space-y-6 flex flex-col justify-between">
+              <div className="space-y-6 flex-1">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700">Product Name</label>
+                    <input
+                      type="text"
+                      required
+                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={editFormData.name}
+                      onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700">Brand</label>
+                    <input
+                      type="text"
+                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={editFormData.brand}
+                      onChange={(e) => setEditFormData({ ...editFormData, brand: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Category</label>
+                  <select
+                    required
+                    className="block w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    value={editFormData.categoryId}
+                    onChange={(e) => setEditFormData({ ...editFormData, categoryId: e.target.value })}
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Product Image Section */}
+                <div className="border border-gray-200 rounded-lg p-5 bg-gray-50/50">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Product Image</label>
+                  <div className="flex gap-3 mb-3">
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${
+                        editImageSourceType === "file"
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                      onClick={() => setEditImageSourceType("file")}
+                    >
+                      Upload Local File
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${
+                        editImageSourceType === "url"
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                      onClick={() => setEditImageSourceType("url")}
+                    >
+                      Image URL
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {editFormData.imageUrl ? (
+                      <div className="relative w-28 h-28 border border-gray-300 rounded-lg overflow-hidden bg-white flex items-center justify-center group shadow-sm flex-shrink-0">
+                        <img
+                          src={editFormData.imageUrl}
+                          alt="Product preview"
+                          className="object-contain w-full h-full"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditFormData({ ...editFormData, imageUrl: "" });
+                            setEditFileInputKey(Date.now());
+                          }}
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-28 h-28 border border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-100/50 text-gray-400 text-xs flex-shrink-0">
+                        No Image Selected
+                      </div>
+                    )}
+
+                    <div className="flex-1">
+                      {editImageSourceType === "file" ? (
+                        <div>
+                          <input
+                            key={editFileInputKey}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 5 * 1024 * 1024) {
+                                  setEditError("Image size must be less than 5MB.");
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setEditFormData({ ...editFormData, imageUrl: reader.result as string });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 file:hover:bg-blue-100 cursor-pointer"
+                          />
+                          <span className="text-[10px] text-gray-500 mt-1 block">Supports JPG, PNG, WEBP (Max 5MB)</span>
+                        </div>
+                      ) : (
+                        <input
+                          type="url"
+                          placeholder="https://example.com/image.jpg"
+                          className="block w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          value={editFormData.imageUrl.startsWith("data:") ? "" : editFormData.imageUrl}
+                          onChange={(e) => setEditFormData({ ...editFormData, imageUrl: e.target.value })}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700">Cost Price (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={editFormData.costPrice}
+                      onChange={(e) => setEditFormData({ ...editFormData, costPrice: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700">Selling Price (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      value={editFormData.sellingPrice}
+                      onChange={(e) => setEditFormData({ ...editFormData, sellingPrice: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Low Stock Threshold</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 5"
+                    className="mt-1 block w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    value={editFormData.lowStockThreshold}
+                    onChange={(e) => {
+                      const cleanValue = e.target.value.replace(/\D/g, "");
+                      setEditFormData({ ...editFormData, lowStockThreshold: cleanValue });
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t flex-shrink-0 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="bg-white border border-gray-300 rounded-md py-2 px-5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="bg-blue-600 border border-transparent rounded-md py-2 px-5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 font-bold"
+                >
+                  {savingEdit ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
