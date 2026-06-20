@@ -62,6 +62,8 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [voiding, setVoiding] = useState(false);
   const [error, setError] = useState("");
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
+  const [whatsappStatus, setWhatsappStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const printComponentRef = useRef<HTMLDivElement>(null);
 
@@ -98,6 +100,47 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
     } catch (err: any) {
       setError(err.message || "Failed to void invoice");
       setVoiding(false);
+    }
+  };
+
+  const handleSendWhatsapp = async () => {
+    if (!bill) return;
+    const customerPhone = bill.customer?.phone || bill.customerPhone || "";
+    if (!customerPhone) {
+      setWhatsappStatus({ type: "error", message: "No customer phone number on this bill." });
+      return;
+    }
+    try {
+      setSendingWhatsapp(true);
+      setWhatsappStatus(null);
+
+      // Generate PDF client-side
+      const { generateBillPdfBlob } = await import("@/lib/client-pdf");
+      const blob = await generateBillPdfBlob(bill);
+
+      // Upload PDF and trigger WhatsApp delivery
+      const formData = new FormData();
+      formData.append("file", blob, `SKC_Invoice_${bill.billNumber}.pdf`);
+      formData.append("customerName", bill.customer?.name || bill.customerName || "Customer");
+      formData.append("mobileNumber", customerPhone);
+      formData.append("billNumber", bill.billNumber);
+
+      const res = await fetch(`/api/v1/bills/${bill.id}/whatsapp/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setWhatsappStatus({ type: "success", message: `Invoice sent to ${customerPhone} via WhatsApp!` });
+      } else {
+        setWhatsappStatus({ type: "error", message: data.error || "Failed to send WhatsApp message." });
+      }
+    } catch (err: any) {
+      console.error("WhatsApp send error:", err);
+      setWhatsappStatus({ type: "error", message: err.message || "Failed to send WhatsApp message." });
+    } finally {
+      setSendingWhatsapp(false);
     }
   };
 
@@ -141,6 +184,22 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="flex gap-2">
+          {bill.status !== "voided" && (
+            <button
+              onClick={handleSendWhatsapp}
+              disabled={sendingWhatsapp}
+              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded text-sm disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {sendingWhatsapp ? (
+                <>
+                  <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                  Sending...
+                </>
+              ) : (
+                "📲 Send via WhatsApp"
+              )}
+            </button>
+          )}
           {role === "owner" && bill.status !== "voided" && isSameDay() && (
             <button
               onClick={handleVoid}
@@ -160,6 +219,16 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {error && <div className="text-red-600 bg-red-50 p-3 rounded text-sm">{error}</div>}
+
+      {whatsappStatus && (
+        <div className={`p-3 rounded text-sm font-semibold ${
+          whatsappStatus.type === "success"
+            ? "bg-green-50 text-green-700 border border-green-200"
+            : "bg-red-50 text-red-700 border border-red-200"
+        }`}>
+          {whatsappStatus.type === "success" ? "✅" : "❌"} {whatsappStatus.message}
+        </div>
+      )}
 
       {/* Invoice sheet preview */}
       <div className="bg-white p-8 rounded-lg shadow overflow-x-auto flex justify-center">

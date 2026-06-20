@@ -247,6 +247,27 @@ export default function BillingPage() {
       setCreatedBill(bill);
       setShowPrintModal(true);
       
+      // Auto-send WhatsApp if phone number exists
+      if (billData.customerPhone) {
+        try {
+          const { generateBillPdfBlob } = await import("@/lib/client-pdf");
+          const blob = await generateBillPdfBlob(bill);
+          const formData = new FormData();
+          formData.append("file", blob, `SKC_Invoice_${bill.billNumber}.pdf`);
+          formData.append("customerName", bill.customer?.name || billData.customerName);
+          formData.append("mobileNumber", bill.customer?.phone || billData.customerPhone);
+          formData.append("billNumber", bill.billNumber);
+          
+          // Don't await this so it happens in the background
+          fetch(`/api/v1/bills/${bill.id}/whatsapp/upload`, {
+            method: "POST",
+            body: formData,
+          }).catch(err => console.error("Auto-whatsapp send failed", err));
+        } catch (err) {
+          console.error("Auto PDF generation failed", err);
+        }
+      }
+
       setCart([]);
       setPhone("");
       setCustomerName("");

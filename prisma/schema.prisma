@@ -104,6 +104,8 @@ model Bill {
   totalAmount      Decimal     @map("total_amount") 
   paymentMode      String      @map("payment_mode") 
   status           String      
+  whatsappStatus   String?     @map("whatsapp_status") 
+  whatsappSentAt   DateTime?   @map("whatsapp_sent_at")
   createdAt        DateTime    @default(now()) @map("created_at")
 
   customer         Customer?   @relation(fields: [customerId], references: [id])
@@ -127,4 +129,41 @@ model BillItem {
   productUnit     ProductUnit? @relation(fields: [productUnitId], references: [id])
 
   @@map("bill_items")
+}
+
+model WhatsappSettings {
+  id                   Int     @id @default(autoincrement())
+  ownerPhone           String  @default("6375591682") @map("owner_phone")
+  status               String  @default("disconnected") @map("status")
+  qrCode               String? @map("qr_code")
+  simulateFailures     Boolean @default(false) @map("simulate_failures")
+  simulateSessionError Boolean @default(false) @map("simulate_session_error")
+
+  @@map("whatsapp_settings")
+}
+
+model WhatsappDelivery {
+  id            Int       @id @default(autoincrement())
+  billId        Int       @map("bill_id")
+  billNumber    String    @map("bill_number")
+  customerName  String    @map("customer_name")
+  mobileNumber  String    @map("mobile_number")
+  pdfPath       String    @map("pdf_path")
+  status        String    @default("pending")
+  failureReason String?   @map("failure_reason")
+  sentAt        DateTime? @map("sent_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("whatsapp_deliveries")
+}
+
+model WhatsappAuditLog {
+  id         Int      @id @default(autoincrement())
+  billId     Int      @map("bill_id")
+  billNumber String   @map("bill_number")
+  event      String
+  details    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("whatsapp_audit_logs")
 }
