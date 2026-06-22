@@ -47,6 +47,12 @@ export default async function DashboardLayout({
               Billing History
             </Link>
             <Link
+              href="/due-payments"
+              className="block px-4 py-2 rounded-md text-gray-700 hover:bg-gray-50 hover:text-blue-600 font-medium"
+            >
+              Due Payments
+            </Link>
+            <Link
               href="/inventory"
               className="block px-4 py-2 rounded-md text-gray-700 hover:bg-gray-50 hover:text-blue-600 font-medium"
             >

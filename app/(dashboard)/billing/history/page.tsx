@@ -228,11 +228,45 @@ export default function BillingHistoryPage() {
               <div style="width: 56px;"></div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #1b3f8b; padding-top: 6px; font-size: 9px; font-weight: 900; color: white; background-color: #1b3f8b; padding: 2px 6px; border-radius: 2px;">
-              <div>WE BELIEVE IN QUALITY</div>
-              <div style="display: flex; gap: 6px;">
-                <span>MOBILE</span>|<span>COMPUTER</span>|<span>AC</span>|<span>CCTV</span>|<span>LEDTV</span>|<span>REFRIGERATOR</span>|<span>WASHING MACHINE</span>
+            // ====================Banner===============================
+            <div style="
+              background-color: #1b3f8b;
+              border-radius: 4px;
+              padding: 8px 12px;
+              margin-top: 6px;
+              display: flex;
+              align-items: center;
+            ">
+
+              <!-- Highlighted Quote -->
+              <div style="
+                background-color: #facc15;
+                color: #1b3f8b;
+                font-size: 10px;
+                font-weight: 900;
+                height: 28px;
+                padding: 0 14px;
+                border-radius: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              ">
+                WE BELIEVE IN QUALITY
               </div>
+
+              <!-- Categories -->
+              <div style="
+                flex: 1;
+                text-align: center;
+                color: #ffffff;
+                font-size: 10px;
+                font-weight: 800;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+              ">
+                MOBILE | COMPUTER | AC | CCTV | LED TV | REFRIGERATOR | WASHING MACHINE
+              </div>
+
             </div>
 
             <div style="display: flex; justify-content: space-between; border-top: 1px solid #1b3f8b; padding-top: 6px; margin-top: 6px; font-size: 10px; font-weight: 900; color: #1b3f8b;">
@@ -300,16 +334,8 @@ export default function BillingHistoryPage() {
 
             <div style="border: 1px solid #1b3f8b; box-sizing: border-box;">
               <div style="display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #1b3f8b;">
-                <span style="font-weight: bold; color: #1b3f8b;">Total</span>
+                <span style="font-weight: bold; color: #1b3f8b;">Subtotal</span>
                 <span style="font-weight: bold;">₹${bill.subtotal}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #1b3f8b;">
-                <span style="font-weight: bold; color: #1b3f8b;">CGST</span>
-                <span>-</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #1b3f8b;">
-                <span style="font-weight: bold; color: #1b3f8b;">SGST</span>
-                <span>-</span>
               </div>
               ${bill.discount > 0 ? `
                 <div style="display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #1b3f8b; color: red; background-color: rgba(239, 68, 68, 0.05);">
@@ -317,6 +343,22 @@ export default function BillingHistoryPage() {
                   <span style="font-weight: bold;">- ₹${bill.discount}</span>
                 </div>
               ` : ""}
+              <div style="display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #1b3f8b; background-color: #f9fafb;">
+                <span style="font-weight: bold; color: #1b3f8b;">Taxable Amount</span>
+                <span style="font-weight: bold;">₹${(Number(bill.subtotal) - Number(bill.discount)).toFixed(2)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #1b3f8b;">
+                <span style="font-weight: bold; color: #1b3f8b;">CGST (${bill.cgstPercent || 0}%)</span>
+                <span>₹${Number(bill.cgstAmount || 0).toFixed(2)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #1b3f8b;">
+                <span style="font-weight: bold; color: #1b3f8b;">SGST (${bill.sgstPercent || 0}%)</span>
+                <span>₹${Number(bill.sgstAmount || 0).toFixed(2)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #1b3f8b;">
+                <span style="font-weight: bold; color: #1b3f8b;">IGST (${bill.igstPercent || 0}%)</span>
+                <span>₹${Number(bill.igstAmount || 0).toFixed(2)}</span>
+              </div>
               <div style="display: flex; justify-content: space-between; padding: 6px; font-weight: 900; background-color: rgba(27, 63, 139, 0.05); color: #1b3f8b; font-size: 12px;">
                 <span>G.Total</span>
                 <span>₹${bill.totalAmount}</span>

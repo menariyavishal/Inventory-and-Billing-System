@@ -109,8 +109,17 @@ export async function generateBillPdfBlob(bill: any): Promise<Blob> {
   const words = numberToWords(parseFloat(bill.totalAmount));
   const billDate = new Date(bill.createdAt).toLocaleDateString("en-IN");
   const subtotal = Number(bill.subtotal).toFixed(2);
+  const discountAmt = Number(bill.discount || 0);
+  const taxableAmt = (Number(bill.subtotal) - discountAmt).toFixed(2);
   const totalAmount = Number(bill.totalAmount).toFixed(2);
-  const discountAmt = bill.discount > 0 ? Number(bill.discount).toFixed(2) : null;
+
+  const sgstPercent = Number(bill.sgstPercent || 0);
+  const cgstPercent = Number(bill.cgstPercent || 0);
+  const igstPercent = Number(bill.igstPercent || 0);
+  
+  const sgstAmount = Number(bill.sgstAmount || 0).toFixed(2);
+  const cgstAmount = Number(bill.cgstAmount || 0).toFixed(2);
+  const igstAmount = Number(bill.igstAmount || 0).toFixed(2);
 
   invoiceEl.innerHTML = `
     <div style="border: 3px solid ${C.navy}; background: ${C.white}; box-sizing: border-box; width: 100%;">
@@ -168,28 +177,41 @@ export async function generateBillPdfBlob(bill: any): Promise<Blob> {
 
         <!-- Category Banner -->
         <div style="
-          background: ${C.navy};
-          color: ${C.white};
-          font-size: 9px;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.8px;
-          padding: 5px 10px;
+          background: #1b3f8b;
+          border-radius: 4px;
+          padding: 10px 14px;
           display: flex;
-          justify-content: center;
-          gap: 4px;
-          border-radius: 2px;
-          margin-bottom: 8px;
+          align-items: center;
+          color: white;
+          margin-bottom: 10px;
         ">
-          <span style="font-style: italic;">WE BELIEVE IN QUALITY</span>
-          <span style="margin: 0 4px;">|</span>
-          <span>MOBILE</span><span>|</span>
-          <span>COMPUTER</span><span>|</span>
-          <span>AC</span><span>|</span>
-          <span>CCTV</span><span>|</span>
-          <span>LEDTV</span><span>|</span>
-          <span>REFRIGERATOR</span><span>|</span>
-          <span>WASHING MACHINE</span>
+
+          <!-- Highlighted Quote -->
+          <div style="
+            background: #facc15;
+            color: #1b3f8b;
+            font-weight: 900;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 3px;
+            white-space: nowrap;
+            margin-right: 12px;
+          ">
+            WE BELIEVE IN QUALITY
+          </div>
+
+          <!-- Categories -->
+          <div style="
+            flex: 1;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+          ">
+            MOBILE | COMPUTER | AC | CCTV | LED TV | REFRIGERATOR | WASHING MACHINE
+          </div>
+
         </div>
 
         <!-- Owner row -->
@@ -276,23 +298,31 @@ export async function generateBillPdfBlob(bill: any): Promise<Blob> {
         <div style="flex: 1; padding: 0;">
           <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
             <tr style="border-bottom: 1.5px solid ${C.navy};">
-              <td style="padding: 7px 14px; font-weight: 800; color: ${C.navy};">Total</td>
+              <td style="padding: 7px 14px; font-weight: 800; color: ${C.navy};">Subtotal</td>
               <td style="padding: 7px 14px; text-align: right; font-weight: 800; color: ${C.text};">&#8377;${subtotal}</td>
             </tr>
-            <tr style="border-bottom: 1.5px solid ${C.navy};">
-              <td style="padding: 7px 14px; font-weight: 700; color: ${C.navy};">CGST</td>
-              <td style="padding: 7px 14px; text-align: right; color: ${C.textLight};">-</td>
-            </tr>
-            <tr style="border-bottom: 1.5px solid ${C.navy};">
-              <td style="padding: 7px 14px; font-weight: 700; color: ${C.navy};">SGST</td>
-              <td style="padding: 7px 14px; text-align: right; color: ${C.textLight};">-</td>
-            </tr>
-            ${discountAmt ? `
+            ${discountAmt > 0 ? `
               <tr style="border-bottom: 1.5px solid ${C.navy}; background: rgba(239, 68, 68, 0.04);">
                 <td style="padding: 7px 14px; font-weight: 800; color: ${C.red};">Discount</td>
-                <td style="padding: 7px 14px; text-align: right; font-weight: 800; color: ${C.red};">- &#8377;${discountAmt}</td>
+                <td style="padding: 7px 14px; text-align: right; font-weight: 800; color: ${C.red};">- &#8377;${discountAmt.toFixed(2)}</td>
               </tr>
             ` : ""}
+            <tr style="border-bottom: 1.5px solid ${C.navy}; background: #f8fafc;">
+              <td style="padding: 7px 14px; font-weight: 800; color: ${C.navy};">Taxable Amount</td>
+              <td style="padding: 7px 14px; text-align: right; font-weight: 800; color: ${C.text};">&#8377;${taxableAmt}</td>
+            </tr>
+            <tr style="border-bottom: 1.5px solid ${C.navy};">
+              <td style="padding: 7px 14px; font-weight: 700; color: ${C.navy};">CGST (${cgstPercent}%)</td>
+              <td style="padding: 7px 14px; text-align: right; color: ${C.text};">&#8377;${cgstAmount}</td>
+            </tr>
+            <tr style="border-bottom: 1.5px solid ${C.navy};">
+              <td style="padding: 7px 14px; font-weight: 700; color: ${C.navy};">SGST (${sgstPercent}%)</td>
+              <td style="padding: 7px 14px; text-align: right; color: ${C.text};">&#8377;${sgstAmount}</td>
+            </tr>
+            <tr style="border-bottom: 1.5px solid ${C.navy};">
+              <td style="padding: 7px 14px; font-weight: 700; color: ${C.navy};">IGST (${igstPercent}%)</td>
+              <td style="padding: 7px 14px; text-align: right; color: ${C.text};">&#8377;${igstAmount}</td>
+            </tr>
             <tr style="background: ${C.navyLight};">
               <td style="padding: 9px 14px; font-weight: 900; color: ${C.navy}; font-size: 13px;">G.Total</td>
               <td style="padding: 9px 14px; text-align: right; font-weight: 900; color: ${C.navy}; font-size: 14px;">&#8377;${totalAmount}</td>

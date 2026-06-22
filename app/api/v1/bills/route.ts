@@ -15,6 +15,7 @@ export async function GET(req: Request) {
 
     const bills = await prisma.bill.findMany({
       where: {
+        paymentStatus: "PAID",
         OR: [
           { billNumber: { contains: search } },
           { customer: { phone: { contains: search } } },
@@ -48,6 +49,8 @@ export async function GET(req: Request) {
   }
 }
 
+import { formatName } from "@/lib/format";
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -56,7 +59,12 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { customerName, customerPhone, paymentMode, discount = 0, items } = body;
+    let { 
+      customerName, customerPhone, paymentMode, discount = 0, items,
+      sgstPercent = 0, cgstPercent = 0, igstPercent = 0, paidAmount
+    } = body;
+
+    customerName = formatName(customerName);
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
@@ -180,7 +188,18 @@ export async function POST(req: Request) {
         }
       }
 
-      const totalAmount = subtotal - parseFloat(discount);
+      const discountVal = parseFloat(discount) || 0;
+      const taxableAmount = subtotal - discountVal;
+
+      const sgstAmt = taxableAmount * (parseFloat(sgstPercent) / 100);
+      const cgstAmt = taxableAmount * (parseFloat(cgstPercent) / 100);
+      const igstAmt = taxableAmount * (parseFloat(igstPercent) / 100);
+
+      const totalAmount = taxableAmount + sgstAmt + cgstAmt + igstAmt;
+
+      const actualPaid = paidAmount !== undefined ? parseFloat(paidAmount) : totalAmount;
+      const dueAmount = totalAmount - actualPaid;
+      const paymentStatus = dueAmount > 0 ? "PARTIAL" : "PAID";
 
       // 4. Create the Bill
       const bill = await tx.bill.create({
@@ -189,8 +208,17 @@ export async function POST(req: Request) {
           customerId,
           createdByUserId,
           subtotal,
-          discount,
+          discount: discountVal,
+          sgstPercent: parseFloat(sgstPercent) || 0,
+          cgstPercent: parseFloat(cgstPercent) || 0,
+          igstPercent: parseFloat(igstPercent) || 0,
+          sgstAmount: sgstAmt,
+          cgstAmount: cgstAmt,
+          igstAmount: igstAmt,
           totalAmount,
+          paidAmount: actualPaid,
+          dueAmount: dueAmount,
+          paymentStatus: paymentStatus,
           paymentMode,
           status: "completed",
           billItems: {

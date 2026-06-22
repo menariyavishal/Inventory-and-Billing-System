@@ -287,12 +287,17 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
               <div className="w-14"></div>
             </div>
 
-            <div className="flex justify-between items-center border-t border-[#1b3f8b] pt-1.5 text-[9px] font-black text-white bg-[#1b3f8b] px-2 py-0.5 rounded-sm">
-              <div>WE BELIEVE IN QUALITY</div>
-              <div className="flex gap-1.5 flex-wrap">
-                <span>MOBILE</span>|<span>COMPUTER</span>|<span>AC</span>|<span>CCTV</span>|<span>LEDTV</span>|<span>REFRIGERATOR</span>|<span>WASHING MACHINE</span>
-              </div>
-            </div>
+            <div className="bg-[#1b3f8b] rounded-md py-3 px-4 flex items-center">
+  
+  <div className="bg-yellow-400 text-[#1b3f8b] font-black px-4 py-1 rounded mr-4 text-sm">
+    WE BELIEVE IN QUALITY
+  </div>
+
+  <div className="flex-1 text-center text-white text-xs font-bold tracking-wide">
+    MOBILE | COMPUTER | AC | CCTV | LED TV | REFRIGERATOR | WASHING MACHINE
+  </div>
+
+</div>
 
             <div className="flex justify-between items-center pt-1.5 text-[10px] font-black text-[#1b3f8b]">
               <div>Owner: Lalit Menariya</div>
@@ -390,16 +395,8 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
 
             <div className="border border-[#1b3f8b] text-[10px]">
               <div className="flex justify-between p-1 border-b border-[#1b3f8b]">
-                <span className="font-bold text-[#1b3f8b]">Total</span>
+                <span className="font-bold text-[#1b3f8b]">Subtotal</span>
                 <span className="font-bold">₹{bill.subtotal}</span>
-              </div>
-              <div className="flex justify-between p-1 border-b border-[#1b3f8b]">
-                <span className="font-bold text-[#1b3f8b]">CGST</span>
-                <span>-</span>
-              </div>
-              <div className="flex justify-between p-1 border-b border-[#1b3f8b]">
-                <span className="font-bold text-[#1b3f8b]">SGST</span>
-                <span>-</span>
               </div>
               {bill.discount > 0 && (
                 <div className="flex justify-between p-1 border-b border-[#1b3f8b] text-red-600 bg-red-50/50">
@@ -407,6 +404,22 @@ export default function BillDetailPage({ params }: { params: Promise<{ id: strin
                   <span className="font-bold">- ₹{bill.discount}</span>
                 </div>
               )}
+              <div className="flex justify-between p-1 border-b border-[#1b3f8b] bg-gray-50/50">
+                <span className="font-bold text-[#1b3f8b]">Taxable Amount</span>
+                <span className="font-bold">₹{(Number(bill.subtotal) - Number(bill.discount)).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between p-1 border-b border-[#1b3f8b]">
+                <span className="font-bold text-[#1b3f8b]">CGST ({bill.cgstPercent || 0}%)</span>
+                <span>₹{Number(bill.cgstAmount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between p-1 border-b border-[#1b3f8b]">
+                <span className="font-bold text-[#1b3f8b]">SGST ({bill.sgstPercent || 0}%)</span>
+                <span>₹{Number(bill.sgstAmount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between p-1 border-b border-[#1b3f8b]">
+                <span className="font-bold text-[#1b3f8b]">IGST ({bill.igstPercent || 0}%)</span>
+                <span>₹{Number(bill.igstAmount || 0).toFixed(2)}</span>
+              </div>
               <div className="flex justify-between p-1 font-black bg-blue-50/30 text-[#1b3f8b] text-xs">
                 <span>G.Total</span>
                 <span>₹{bill.totalAmount}</span>

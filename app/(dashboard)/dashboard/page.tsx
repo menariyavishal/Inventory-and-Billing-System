@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { FaWhatsapp } from "react-icons/fa";
 import {
   AreaChart,
   Area,
@@ -18,6 +19,7 @@ import {
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [overduePayments, setOverduePayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [trendType, setTrendType] = useState<"daily" | "weekly" | "monthly">("daily");
@@ -156,20 +158,23 @@ export default function DashboardPage() {
       setLoading(true);
       setError("");
 
-      const [statsRes, notifRes] = await Promise.all([
+      const [statsRes, notifRes, overdueRes] = await Promise.all([
         fetch("/api/v1/dashboard/stats"),
-        fetch("/api/v1/dashboard/notifications")
+        fetch("/api/v1/dashboard/notifications"),
+        fetch("/api/v1/due-payments?overdue=true")
       ]);
 
-      if (!statsRes.ok || !notifRes.ok) {
+      if (!statsRes.ok || !notifRes.ok || !overdueRes.ok) {
         throw new Error("Failed to load dashboard metrics");
       }
 
       const statsData = await statsRes.json();
       const notifData = await notifRes.json();
+      const overdueData = await overdueRes.json();
 
       setStats(statsData);
       setNotifications(notifData);
+      setOverduePayments(overdueData);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "An error occurred while loading dashboard metrics");
@@ -245,12 +250,12 @@ export default function DashboardPage() {
       {/* WhatsApp Integration Status Banner/Card */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-300 hover:shadow-md">
         <div className="flex items-start gap-4">
-          <div className="p-3 bg-green-50 text-green-600 rounded-xl text-2xl shrink-0">
-            💬
-          </div>
+         <div className="p-3 bg-green-50 text-green-600 rounded-xl shrink-0">
+            <FaWhatsapp className="w-8 h-8" />
+         </div> 
           <div>
             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              WhatsApp Billing Daemon
+              WhatsApp Invoice Delivery
               {whatsappSettings?.enabled && (
                 <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase ${whatsappSettings.status === "connected"
                     ? "bg-green-100 text-green-800 animate-pulse"
@@ -310,6 +315,67 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* OVERDUE PAYMENTS REMINDER COMPONENT */}
+      {overduePayments.length > 0 && (
+        <div className="bg-red-50 border border-red-200 p-6 rounded-xl shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-red-800">Urgent: Overdue Payments (15+ Days)</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {overduePayments.map((bill) => {
+              const openWhatsApp = () => {
+                const phone = bill.customer?.phone;
+                if (!phone) return;
+                const formattedPhone = phone.length === 10 ? `91${phone}` : phone;
+                const msg = `Hello ${bill.customer?.name || "Customer"}, this is Shree Krishna Computer. Your pending due of ₹${parseFloat(bill.dueAmount).toFixed(2)} from bill #${bill.billNumber} is overdue. Please settle it at your earliest convenience.`;
+                window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+              };
+
+              return (
+                <div key={bill.id} className="bg-white rounded-lg p-4 shadow-sm border border-red-100 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="font-bold text-gray-900 truncate" title={bill.customer?.name}>
+                        {bill.customer?.name || "Guest"}
+                      </div>
+                      <Link href={`/billing/${bill.id}`} className="text-xs font-bold text-blue-600 hover:underline">
+                        #{bill.billNumber}
+                      </Link>
+                    </div>
+                    <div className="text-sm text-gray-600 mb-1">{bill.customer?.phone || "No Phone"}</div>
+                    <div className="text-sm font-black text-red-600">Due: ₹{parseFloat(bill.dueAmount).toFixed(2)}</div>
+                    <div className="text-xs text-gray-500 mt-1">Bill Date: {new Date(bill.createdAt).toLocaleDateString()}</div>
+                  </div>
+                  
+                  {bill.customer?.phone && (
+                    <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                      <a 
+                        href={`tel:${bill.customer.phone}`}
+                        className="flex-1 flex justify-center items-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-700 py-1.5 rounded-md text-sm font-bold transition"
+                      >
+                        📞 Call
+                      </a>
+                      <button 
+                        onClick={openWhatsApp}
+                        className="flex-1 flex justify-center items-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-1.5 rounded-md text-sm font-bold transition"
+                      >
+                        WhatsApp
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
