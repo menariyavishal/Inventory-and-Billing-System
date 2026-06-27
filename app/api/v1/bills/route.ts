@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     let { 
       customerName, customerPhone, paymentMode, discount = 0, items,
       sgstPercent = 0, cgstPercent = 0, igstPercent = 0, paidAmount,
-      financeProviderId, emiAmount
+      financeProviderId, emiAmount, financeMonths
     } = body;
 
     customerName = formatName(customerName);
@@ -231,6 +231,7 @@ export async function POST(req: Request) {
           create: {
             financeProviderId: parseInt(financeProviderId),
             emiAmount: parseFloat(emiAmount),
+            months: financeMonths ? parseInt(financeMonths) : null,
           }
         };
       }

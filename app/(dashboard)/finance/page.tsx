@@ -132,17 +132,18 @@ export default function FinancePage() {
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer Details</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Finance Provider</th>
                 <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">EMI Amount</th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Months</th>
                 <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Bill Total</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500 font-medium">Loading records...</td>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500 font-medium">Loading records...</td>
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center">
                       <FaWallet className="text-4xl text-gray-300 mb-3" />
                       <p className="text-lg font-semibold text-gray-600">No finance records found.</p>
@@ -170,6 +171,9 @@ export default function FinancePage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
                       ₹{parseFloat(record.emiAmount).toLocaleString("en-IN")}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
+                      {record.months ? record.months : "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
                       ₹{parseFloat(record.totalAmount).toLocaleString("en-IN")}

@@ -46,6 +46,7 @@ export async function GET(req: Request) {
       customerPhone: record.bill.customer?.phone || "N/A",
       providerName: record.financeProvider.name,
       emiAmount: record.emiAmount,
+      months: (record as any).months,
       totalAmount: record.bill.totalAmount,
     }));
 

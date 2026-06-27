@@ -116,6 +116,7 @@ export default function BillingPage() {
   const [financeProviders, setFinanceProviders] = useState<any[]>([]);
   const [financeProviderId, setFinanceProviderId] = useState("");
   const [emiAmount, setEmiAmount] = useState("");
+  const [financeMonths, setFinanceMonths] = useState("");
 
   // Created Bill for Print Modal
   const [createdBill, setCreatedBill] = useState<any>(null);
@@ -307,6 +308,10 @@ export default function BillingPage() {
         setError("Please enter a valid EMI Amount");
         return;
       }
+      if (!financeMonths || parseInt(financeMonths) <= 0) {
+        setError("Please enter valid Months");
+        return;
+      }
     }
     setError("");
     setIsSaving(true);
@@ -335,6 +340,7 @@ export default function BillingPage() {
       if (paymentMode.toLowerCase() === "finance") {
         billData.financeProviderId = financeProviderId;
         billData.emiAmount = emiAmount;
+        billData.financeMonths = financeMonths;
       }
 
       const bill = await createBill(billData);
@@ -389,6 +395,7 @@ export default function BillingPage() {
     setIgstPercent("0");
     setFinanceProviderId("");
     setEmiAmount("");
+    setFinanceMonths("");
   };
 
   // Shareable render invoice helper
@@ -856,29 +863,51 @@ export default function BillingPage() {
 
           {/* Conditional Finance Fields */}
           {paymentMode === "finance" && (
-            <div className="grid grid-cols-2 gap-4 mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-              <div>
-                <label className="block text-sm font-bold text-gray-700">Finance Provider</label>
-                <select
-                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg py-2 px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition"
-                  value={financeProviderId}
-                  onChange={(e) => setFinanceProviderId(e.target.value)}
-                >
-                  <option value="">Select Provider</option>
-                  {financeProviders.map(provider => (
-                    <option key={provider.id} value={provider.id}>{provider.name}</option>
-                  ))}
-                </select>
+            <div className="grid grid-cols-5 gap-3 mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-gray-700 truncate">Finance Provider</label>
+                <div className="relative mt-1">
+                  <select
+                    className="peer appearance-none block w-full border-2 border-gray-300 rounded-lg py-2 pl-2 pr-6 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition cursor-pointer text-ellipsis overflow-hidden whitespace-nowrap"
+                    value={financeProviderId}
+                    onChange={(e) => {
+                      setFinanceProviderId(e.target.value);
+                      e.target.blur();
+                    }}
+                  >
+                    <option value="">Select...</option>
+                    {financeProviders.map(provider => (
+                      <option key={provider.id} value={provider.id}>{provider.name}</option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-500 peer-focus:rotate-90 transition-transform duration-200">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700">EMI Amount (₹)</label>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-gray-700 truncate">EMI Amount (₹)</label>
                 <input
                   type="number"
                   min="0"
-                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg py-2 px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg py-2 px-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition"
                   value={emiAmount}
                   onChange={(e) => setEmiAmount(e.target.value)}
                   onKeyDown={(e) => handleNumberKeyDown(e, true)}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-xs font-bold text-gray-700 truncate">Months</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg py-2 px-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition"
+                  value={financeMonths}
+                  onChange={(e) => setFinanceMonths(e.target.value)}
+                  onKeyDown={(e) => handleNumberKeyDown(e, false)}
                   onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 />
               </div>
