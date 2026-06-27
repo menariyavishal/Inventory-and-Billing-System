@@ -53,6 +53,12 @@ export default async function DashboardLayout({
               Due Payments
             </Link>
             <Link
+              href="/finance"
+              className="block px-4 py-2 rounded-md text-gray-700 hover:bg-gray-50 hover:text-blue-600 font-medium"
+            >
+              Finance
+            </Link>
+            <Link
               href="/inventory"
               className="block px-4 py-2 rounded-md text-gray-700 hover:bg-gray-50 hover:text-blue-600 font-medium"
             >

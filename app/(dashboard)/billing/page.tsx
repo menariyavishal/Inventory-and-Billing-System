@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { getProducts } from "@/lib/api/inventory";
 import { searchCustomer, createBill } from "@/lib/api/billing";
 import { useReactToPrint } from "react-to-print";
 import { useAuth } from "@/hooks/useAuth";
+import CameraScanner from "@/components/CameraScanner";
+import { FaCamera } from "react-icons/fa";
 
 // Indian currency to words helper
 function numberToWords(num: number): string {
@@ -110,11 +112,35 @@ export default function BillingPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Finance states
+  const [financeProviders, setFinanceProviders] = useState<any[]>([]);
+  const [financeProviderId, setFinanceProviderId] = useState("");
+  const [emiAmount, setEmiAmount] = useState("");
+
   // Created Bill for Print Modal
   const [createdBill, setCreatedBill] = useState<any>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
 
+  // Scanner State
+  const [showScanner, setShowScanner] = useState(false);
+
   const printComponentRef = useRef<HTMLDivElement>(null);
+
+  // Fetch finance providers
+  useEffect(() => {
+    const fetchFinanceProviders = async () => {
+      try {
+        const res = await fetch("/api/v1/finance/providers");
+        if (res.ok) {
+          const data = await res.json();
+          setFinanceProviders(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch finance providers", err);
+      }
+    };
+    fetchFinanceProviders();
+  }, []);
 
   // Search products
   useEffect(() => {
@@ -133,27 +159,6 @@ export default function BillingPage() {
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);
-
-  // Handle phone changes to search customer
-  const handlePhoneChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setPhone(value);
-
-    if (value.length === 10) {
-      setIsSearchingCustomer(true);
-      try {
-        const cust = await searchCustomer(value);
-        if (cust && cust.name) {
-          // Only auto-fill the name if the user hasn't already typed something
-          setCustomerName((prev) => prev.trim() === "" ? cust.name : prev);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsSearchingCustomer(false);
-      }
-    }
-  };
 
   // Add product to cart
   const addToCart = async (product: any) => {
@@ -191,6 +196,64 @@ export default function BillingPage() {
       console.error(err);
     }
   };
+
+  // Handle Scan Result
+  const handleScanSuccess = useCallback(async (code: string) => {
+    setShowScanner(false);
+    try {
+      const res = await fetch(`/api/v1/products/scan?code=${encodeURIComponent(code)}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        alert(errorData.error || "Failed to find product via scan");
+        return;
+      }
+      
+      const result = await res.json();
+      
+      if (result.type === "product") {
+        addToCart(result.data);
+      } else if (result.type === "imei") {
+        // Find if product already in cart
+        const product = result.data;
+        const unitId = result.unitId.toString();
+        
+        setCart((prev) => {
+          const existing = prev.find((item) => item.product.id === product.id && item.selectedUnitId === unitId);
+          if (existing) {
+            alert("This specific unit (IMEI) is already in the cart.");
+            return prev;
+          }
+          return [...prev, { product, quantity: 1, selectedUnitId: unitId }];
+        });
+      }
+    } catch (err) {
+      console.error("Scan processing error", err);
+      alert("Error processing scan result");
+    }
+  }, [addToCart]);
+
+  // Handle phone changes to search customer
+  const handlePhoneChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPhone(value);
+
+    if (value.length === 10) {
+      setIsSearchingCustomer(true);
+      try {
+        const cust = await searchCustomer(value);
+        if (cust && cust.name) {
+          // Only auto-fill the name if the user hasn't already typed something
+          setCustomerName((prev) => prev.trim() === "" ? cust.name : prev);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSearchingCustomer(false);
+      }
+    }
+  };
+
+
 
   const removeFromCart = (productId: number, unitId?: string) => {
     setCart(cart.filter((item) => !(item.product.id === productId && (!unitId || item.selectedUnitId === unitId))));
@@ -235,6 +298,16 @@ export default function BillingPage() {
       setError("Customer Name is required when a Phone number is entered");
       return;
     }
+    if (paymentMode.toLowerCase() === "finance") {
+      if (!financeProviderId) {
+        setError("Please select a Finance Provider");
+        return;
+      }
+      if (!emiAmount || parseFloat(emiAmount) <= 0) {
+        setError("Please enter a valid EMI Amount");
+        return;
+      }
+    }
     setError("");
     setIsSaving(true);
 
@@ -247,7 +320,7 @@ export default function BillingPage() {
           : undefined,
       }));
 
-      const billData = {
+      const billData: any = {
         customerName: customerName || "Guest Customer",
         customerPhone: phone || undefined,
         paymentMode,
@@ -258,6 +331,11 @@ export default function BillingPage() {
         paidAmount: paidAmount === "" ? totalAmount : parseFloat(paidAmount),
         items: itemsPayload,
       };
+
+      if (paymentMode.toLowerCase() === "finance") {
+        billData.financeProviderId = financeProviderId;
+        billData.emiAmount = emiAmount;
+      }
 
       const bill = await createBill(billData);
       setCreatedBill(bill);
@@ -309,6 +387,8 @@ export default function BillingPage() {
     setSgstPercent("0");
     setCgstPercent("0");
     setIgstPercent("0");
+    setFinanceProviderId("");
+    setEmiAmount("");
   };
 
   // Shareable render invoice helper
@@ -588,14 +668,20 @@ export default function BillingPage() {
           <label className="block text-sm font-bold text-gray-700 mb-1">
             Search & Add Products <span className="text-red-500">*</span>
           </label>
-          <div className="relative">
+          <div className="relative flex gap-2">
             <input
               type="text"
-              placeholder="Type brand or product name (e.g., iPhone)..."
+              placeholder="Type brand, product name, or scan barcode..."
               className="w-full border-2 border-gray-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-lg px-4 py-2 text-sm font-medium transition"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            <button
+              onClick={() => setShowScanner(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-lg font-bold flex items-center justify-center transition shadow-sm whitespace-nowrap"
+            >
+              <FaCamera className="mr-2" /> Scan
+            </button>
             {searchResults.length > 0 && (
               <div className="absolute left-0 right-0 bg-white border border-gray-200 mt-1 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
                 {searchResults.map((p) => (
@@ -750,8 +836,8 @@ export default function BillingPage() {
             <label className="block text-sm font-bold text-gray-700 mb-1">
               Payment Mode <span className="text-red-500">*</span>
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {["cash", "upi", "card"].map((mode) => (
+            <div className="grid grid-cols-4 gap-2">
+              {["cash", "upi", "card", "finance"].map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -767,6 +853,37 @@ export default function BillingPage() {
               ))}
             </div>
           </div>
+
+          {/* Conditional Finance Fields */}
+          {paymentMode === "finance" && (
+            <div className="grid grid-cols-2 gap-4 mt-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+              <div>
+                <label className="block text-sm font-bold text-gray-700">Finance Provider</label>
+                <select
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg py-2 px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition"
+                  value={financeProviderId}
+                  onChange={(e) => setFinanceProviderId(e.target.value)}
+                >
+                  <option value="">Select Provider</option>
+                  {financeProviders.map(provider => (
+                    <option key={provider.id} value={provider.id}>{provider.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700">EMI Amount (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="mt-1 block w-full border-2 border-gray-300 rounded-lg py-2 px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-600 transition"
+                  value={emiAmount}
+                  onChange={(e) => setEmiAmount(e.target.value)}
+                  onKeyDown={(e) => handleNumberKeyDown(e, true)}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Discount Amount */}
           <div>
@@ -897,6 +1014,13 @@ export default function BillingPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showScanner && (
+        <CameraScanner
+          onScanSuccess={handleScanSuccess}
+          onClose={() => setShowScanner(false)}
+        />
       )}
     </div>
   );

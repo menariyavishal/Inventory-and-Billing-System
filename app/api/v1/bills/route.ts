@@ -61,7 +61,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     let { 
       customerName, customerPhone, paymentMode, discount = 0, items,
-      sgstPercent = 0, cgstPercent = 0, igstPercent = 0, paidAmount
+      sgstPercent = 0, cgstPercent = 0, igstPercent = 0, paidAmount,
+      financeProviderId, emiAmount
     } = body;
 
     customerName = formatName(customerName);
@@ -202,29 +203,40 @@ export async function POST(req: Request) {
       const paymentStatus = dueAmount > 0 ? "PARTIAL" : "PAID";
 
       // 4. Create the Bill
-      const bill = await tx.bill.create({
-        data: {
-          billNumber: nextBillNo,
-          customerId,
-          createdByUserId,
-          subtotal,
-          discount: discountVal,
-          sgstPercent: parseFloat(sgstPercent) || 0,
-          cgstPercent: parseFloat(cgstPercent) || 0,
-          igstPercent: parseFloat(igstPercent) || 0,
-          sgstAmount: sgstAmt,
-          cgstAmount: cgstAmt,
-          igstAmount: igstAmt,
-          totalAmount,
-          paidAmount: actualPaid,
-          dueAmount: dueAmount,
-          paymentStatus: paymentStatus,
-          paymentMode,
-          status: "completed",
-          billItems: {
-            create: billItemsData,
-          },
+      const billData: any = {
+        billNumber: nextBillNo,
+        customerId,
+        createdByUserId,
+        subtotal,
+        discount: discountVal,
+        sgstPercent: parseFloat(sgstPercent) || 0,
+        cgstPercent: parseFloat(cgstPercent) || 0,
+        igstPercent: parseFloat(igstPercent) || 0,
+        sgstAmount: sgstAmt,
+        cgstAmount: cgstAmt,
+        igstAmount: igstAmt,
+        totalAmount,
+        paidAmount: actualPaid,
+        dueAmount: dueAmount,
+        paymentStatus: paymentStatus,
+        paymentMode,
+        status: "completed",
+        billItems: {
+          create: billItemsData,
         },
+      };
+
+      if (paymentMode.toLowerCase() === "finance" && financeProviderId && emiAmount !== undefined) {
+        billData.financeRecord = {
+          create: {
+            financeProviderId: parseInt(financeProviderId),
+            emiAmount: parseFloat(emiAmount),
+          }
+        };
+      }
+
+      const bill = await tx.bill.create({
+        data: billData,
         include: {
           customer: true,
           billItems: {
@@ -233,6 +245,11 @@ export async function POST(req: Request) {
               productUnit: true,
             },
           },
+          financeRecord: {
+            include: {
+              financeProvider: true
+            }
+          }
         },
       });
 

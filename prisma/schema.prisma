@@ -37,6 +37,7 @@ model Product {
   id                  Int                @id @default(autoincrement())
   categoryId          Int                @map("category_id")
   name                String             
+  barcode             String?            @unique
   brand               String?            
   productType         String             @map("product_type") 
   costPrice           Decimal            @map("cost_price") 
@@ -120,6 +121,7 @@ model Bill {
   customer         Customer?   @relation(fields: [customerId], references: [id])
   user             User        @relation(fields: [createdByUserId], references: [id])
   billItems        BillItem[]
+  financeRecord    FinanceRecord?
 
   @@map("bills")
 }
@@ -138,6 +140,29 @@ model BillItem {
   productUnit     ProductUnit? @relation(fields: [productUnitId], references: [id])
 
   @@map("bill_items")
+}
+
+model FinanceProvider {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  records   FinanceRecord[]
+
+  @@map("finance_providers")
+}
+
+model FinanceRecord {
+  id                Int      @id @default(autoincrement())
+  billId            Int      @unique @map("bill_id")
+  financeProviderId Int      @map("finance_provider_id")
+  emiAmount         Decimal  @map("emi_amount")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  bill              Bill            @relation(fields: [billId], references: [id])
+  financeProvider   FinanceProvider @relation(fields: [financeProviderId], references: [id])
+
+  @@map("finance_records")
 }
 
 model WhatsappSettings {
